@@ -62,7 +62,6 @@
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 24px;
         }
 
         /* Inputs and Buttons */
@@ -216,11 +215,16 @@
     </div>
 
     <div class="main-content">
-        <div class="glass" style="border-radius: 16px; padding: 24px;" id="addResponseSection">
+        <div class="glass" style="border-radius: 16px; padding: 24px; margin-bottom: 24px;" id="addResponseSection">
             <h2 style="margin-top: 0; text-shadow: 0 0 10px rgba(120, 0, 255, 0.5);" id="currentCategoryTitle">Select a category</h2>
             <textarea id="newResponseInput" rows="4" placeholder="Type or paste your response here... (Auto-translates between Arabic and English)"></textarea>
             <button onclick="addResponse()">Save Response</button>
             <span id="translatingStatus" class="loading" style="display: none; margin-left: 12px;">Translating...</span>
+        </div>
+
+        <!-- Search Bar -->
+        <div id="searchSection" style="display: none; margin-bottom: 16px;">
+            <input type="text" id="searchInput" placeholder="🔍 Search responses in this category..." oninput="renderResponses()" style="margin-bottom: 0;">
         </div>
 
         <div id="responsesContainer">
@@ -239,7 +243,7 @@
             return arabicPattern.test(text);
         }
 
-        // Free Translation API (MyMemory)
+        // Free Translation API (MyMemory) - NO OPENAI
         async function translateText(text, langpair) {
             try {
                 const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langpair}`);
@@ -320,6 +324,7 @@
                         activeCategoryId = null;
                         document.getElementById('currentCategoryTitle').textContent = "Select a category";
                         document.getElementById('responsesContainer').innerHTML = '';
+                        document.getElementById('searchSection').style.display = 'none';
                     }
                 }
                 
@@ -339,6 +344,10 @@
             if(category) {
                 document.getElementById('currentCategoryTitle').textContent = `Add to: ${category.name}`;
             }
+            
+            // Clear the search bar when switching categories
+            document.getElementById('searchInput').value = '';
+            
             renderCategories();
             renderResponses();
         }
@@ -385,20 +394,52 @@
             category.responses.unshift(newResponse); 
             saveData();
             input.value = '';
+            
+            // Clear the search input so the new response shows up instantly
+            document.getElementById('searchInput').value = ''; 
+            
             renderResponses();
         }
 
-        // Render Responses for Active Category
+        // Render Responses for Active Category (with Search Filter)
         function renderResponses() {
             const container = document.getElementById('responsesContainer');
+            const searchSection = document.getElementById('searchSection');
+            
             container.innerHTML = '';
             
-            if (!activeCategoryId) return;
+            if (!activeCategoryId) {
+                searchSection.style.display = 'none';
+                return;
+            }
 
             const category = data.categories.find(c => c.id === activeCategoryId);
-            if (!category) return;
-            
-            category.responses.forEach(res => {
+            if (!category) {
+                searchSection.style.display = 'none';
+                return;
+            }
+
+            // Show search bar only if category is active
+            searchSection.style.display = 'block';
+
+            // Get the current search query
+            const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+
+            // Filter responses based on search query
+            const filteredResponses = category.responses.filter(res => {
+                const originalText = res.original.toLowerCase();
+                const translatedText = res.translated ? res.translated.toLowerCase() : '';
+                return originalText.includes(searchQuery) || translatedText.includes(searchQuery);
+            });
+
+            // Show a message if no results match the search
+            if (filteredResponses.length === 0 && searchQuery !== '') {
+                container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px;">No matching responses found.</div>';
+                return;
+            }
+
+            // Render the filtered responses
+            filteredResponses.forEach(res => {
                 const card = document.createElement('div');
                 card.className = 'response-card glass';
 
