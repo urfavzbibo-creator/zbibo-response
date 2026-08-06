@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Response Manager</title>
+    <style>
+        :root {
+            /* Deep Purple Neon */
+            --neon-purple: #7800ff; 
+            --neon-purple-glow: 0 0 10px rgba(120, 0, 255, 0.6), 0 0 20px rgba(120, 0, 255, 0.4);
+            
+            /* Glassmorphism settings */
+            --glass-bg: rgba(15, 15, 15, 0.6);
+            --glass-border: rgba(120, 0, 255, 0.25);
+            
+            /* Base Colors */
+            --bg-color: #000000;
+            --text-main: #ffffff;
+            --text-muted: #888888;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Glassmorphism utility */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--glass-border);
+            z-index: 10;
+        }
+
+        .sidebar h2 {
+            margin-top: 0;
+            font-weight: 500;
+            text-shadow: 0 0 10px rgba(120, 0, 255, 0.5);
+            font-size: 1.2rem;
+            margin-bottom: 12px;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Inputs and Buttons */
+        input, textarea {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 12px;
+            border-radius: 8px;
+            outline: none;
+            box-sizing: border-box;
+            margin-bottom: 12px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, textarea:focus {
+            border-color: var(--neon-purple);
+            box-shadow: var(--neon-purple-glow);
+            background: rgba(15, 15, 15, 0.8);
+        }
+
+        button {
+            background: transparent;
+            color: var(--neon-purple);
+            border: 1px solid var(--neon-purple);
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 5px rgba(120, 0, 255, 0.3);
+        }
+
+        button:hover {
+            background: var(--neon-purple);
+            color: #ffffff;
+            box-shadow: var(--neon-purple-glow);
+            text-shadow: none;
+        }
+
+        /* Settings Section */
+        .settings-section {
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+            border-bottom: 1px dashed var(--glass-border);
+        }
+
+        /* Category List */
+        .category-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .category-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-muted);
+        }
+
+        .category-item:hover {
+            background: rgba(120, 0, 255, 0.1);
+            color: var(--text-main);
+        }
+
+        .category-item.active {
+            background: rgba(120, 0, 255, 0.15);
+            color: var(--text-main);
+            border-left: 3px solid var(--neon-purple);
+            box-shadow: inset 5px 0 10px -5px rgba(120, 0, 255, 0.3);
+        }
+
+        /* Response Cards */
+        .response-card {
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .response-card:hover {
+            border-color: rgba(120, 0, 255, 0.5);
+        }
+
+        .response-text {
+            font-size: 16px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .translation-text {
+            font-size: 14px;
+            color: #cccccc;
+            border-top: 1px dashed var(--glass-border);
+            padding-top: 12px;
+            margin-top: 4px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        
+        .loading {
+            font-size: 12px;
+            color: var(--neon-purple);
+            animation: pulse 1.5s infinite;
+            text-shadow: 0 0 5px rgba(120, 0, 255, 0.5);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar glass">
+        <div class="settings-section">
+            <h2>OpenAI Settings</h2>
+            <input type="password" id="apiKeyInput" placeholder="Paste OpenAI API Key...">
+            <button onclick="saveApiKey()" style="width: 100%; font-size: 12px;">Save API Key</button>
+            <div id="keyStatus" style="font-size: 12px; color: var(--text-muted); margin-top: 8px; text-align: center;"></div>
+        </div>
+
+        <h2>Categories</h2>
+        <input type="text" id="newCategoryInput" placeholder="New Category Name...">
+        <button onclick="addCategory()" style="width: 100%; margin-bottom: 24px;">Add Category</button>
+        
+        <ul class="category-list" id="categoryList">
+            <!-- Categories injected here by JS -->
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="glass" style="border-radius: 16px; padding: 24px;" id="addResponseSection">
+            <h2 style="margin-top: 0; text-shadow: 0 0 10px rgba(120, 0, 255, 0.5);" id="currentCategoryTitle">Select a category</h2>
+            <textarea id="newResponseInput" rows="4" placeholder="Type or paste your response here... (OpenAI will auto-translate)"></textarea>
+            <button onclick="addResponse()">Save Response</button>
+            <span id="translatingStatus" class="loading" style="display: none; margin-left: 12px;">Translating with AI...</span>
+        </div>
+
+        <div id="responsesContainer">
+            <!-- Responses injected here by JS -->
+        </div>
+    </div>
+
+    <script>
+        // State Management
+        let data = JSON.parse(localStorage.getItem('responseManagerData')) || { categories: [] };
+        let activeCategoryId = null;
+
+        // Initialize API Key UI
+        const savedKey = localStorage.getItem('openai_api_key');
+        if (savedKey) {
+            document.getElementById('apiKeyInput').value = savedKey;
+            document.getElementById('keyStatus').textContent = "API Key saved securely in browser.";
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if (key) {
+                localStorage.setItem('openai_api_key', key);
+                document.getElementById('keyStatus').textContent = "API Key saved securely in browser.";
+                document.getElementById('keyStatus').style.color = "var(--neon-purple)";
+            } else {
+                localStorage.removeItem('openai_api_key');
+                document.getElementById('keyStatus').textContent = "API Key removed.";
+            }
+        }
+
+        // Utility: Check if text contains Arabic characters
+        function containsArabic(text) {
+            const arabicPattern = /[\u0600-\u06FF]/;
+            return arabicPattern.test(text);
+        }
+
+        // OpenAI Translation API
+        async function translateWithOpenAI(text, isArabic) {
+            const apiKey = localStorage.getItem('openai_api_key');
+            if (!apiKey) {
+                alert("Please add your OpenAI API Key in the sidebar settings first.");
+                return "Translation failed: No API Key provided.";
+            }
+
+            const targetLang = isArabic ? "English" : "Arabic";
+            const systemPrompt = `You are a professional translator. Translate the user's text into ${targetLang}. Provide ONLY the translation, without any conversational filler, quotes, or explanations.`;
+
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-3.5-turbo", // Switch to gpt-4 or gpt-4o-mini if preferred
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: text }
+                        ],
+                        temperature: 0.3
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.error?.message || 'OpenAI API Error');
+                }
+
+                const result = await response.json();
+                return result.choices[0].message.content.trim();
+            } catch (error) {
+                console.error("OpenAI Error:", error);
+                return `Translation failed: ${error.message}`;
+            }
+        }
+
+        // Save Data to Local Storage
+        function saveData() {
+            localStorage.setItem('responseManagerData', JSON.stringify(data));
+        }
+
+        // Render Categories
+        function renderCategories() {
+            const list = document.getElementById('categoryList');
+            list.innerHTML = '';
+            
+            data.categories.forEach(category => {
+                const li = document.createElement('li');
+                li.className = `category-item ${activeCategoryId === category.id ? 'active' : ''}`;
+                li.textContent = category.name;
+                li.onclick = () => selectCategory(category.id);
+                list.appendChild(li);
+            });
+        }
+
+        // Add New Category
+        function addCategory() {
+            const input = document.getElementById('newCategoryInput');
+            const name = input.value.trim();
+            if (!name) return;
+
+            const newCategory = {
+                id: Date.now().toString(),
+                name: name,
+                responses: []
+            };
+
+            data.categories.push(newCategory);
+            saveData();
+            input.value = '';
+            
+            if (!activeCategoryId) {
+                selectCategory(newCategory.id);
+            } else {
+                renderCategories();
+            }
+        }
+
+        // Select Category
+        function selectCategory(id) {
+            activeCategoryId = id;
+            const category = data.categories.find(c => c.id === id);
+            document.getElementById('currentCategoryTitle').textContent = `Add to: ${category.name}`;
+            renderCategories();
+            renderResponses();
+        }
+
+        // Add Response (with OpenAI auto-translation)
+        async function addResponse() {
+            if (!activeCategoryId) {
+                alert("Please select or create a category first.");
+                return;
+            }
+
+            const input = document.getElementById('newResponseInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const apiKey = localStorage.getItem('openai_api_key');
+            if (!apiKey) {
+                alert("You need to enter your OpenAI API key in the sidebar before saving responses.");
+                return;
+            }
+
+            const category = data.categories.find(c => c.id === activeCategoryId);
+            const statusEl = document.getElementById('translatingStatus');
+            
+            let translatedText = null;
+            let translationLang = '';
+            const isArabic = containsArabic(text);
+
+            // Determine direction and translate
+            statusEl.style.display = 'inline-block';
+            if (isArabic) {
+                statusEl.textContent = 'OpenAI is translating to English...';
+                translatedText = await translateWithOpenAI(text, true);
+                translationLang = 'English';
+            } else {
+                statusEl.textContent = 'OpenAI is translating to Arabic...';
+                translatedText = await translateWithOpenAI(text, false);
+                translationLang = 'Arabic';
+            }
+            statusEl.style.display = 'none';
+
+            const newResponse = {
+                id: Date.now().toString(),
+                original: text,
+                isOriginalArabic: isArabic,
+                translated: translatedText,
+                translationLang: translationLang
+            };
+
+            category.responses.unshift(newResponse); 
+            saveData();
+            input.value = '';
+            renderResponses();
+        }
+
+        // Render Responses for Active Category
+        function renderResponses() {
+            const container = document.getElementById('responsesContainer');
+            container.innerHTML = '';
+            
+            if (!activeCategoryId) return;
+
+            const category = data.categories.find(c => c.id === activeCategoryId);
+            
+            category.responses.forEach(res => {
+                const card = document.createElement('div');
+                card.className = 'response-card glass';
+
+                // Original text
+                const origText = document.createElement('div');
+                origText.className = 'response-text';
+                origText.textContent = res.original;
+                // Set RTL if original is Arabic
+                if (res.isOriginalArabic) {
+                    origText.style.direction = 'rtl';
+                    origText.style.textAlign = 'right';
+                }
+                card.appendChild(origText);
+
+                // Actions container
+                const actions = document.createElement('div');
+                actions.className = 'card-actions';
+
+                // Copy Original Button
+                const btnOriginal = document.createElement('button');
+                btnOriginal.textContent = 'Copy Original';
+                btnOriginal.onclick = () => copyToClipboard(res.original, btnOriginal);
+                actions.appendChild(btnOriginal);
+
+                // If translation exists, show it and add a copy button for it
+                if (res.translated) {
+                    const transText = document.createElement('div');
+                    transText.className = 'translation-text';
+                    transText.textContent = `${res.translationLang}: ${res.translated}`;
+                    
+                    // Set RTL if the translation is Arabic
+                    if (res.translationLang === 'Arabic') {
+                        transText.style.direction = 'rtl';
+                        transText.style.textAlign = 'right';
+                    }
+                    
+                    card.appendChild(transText);
+
+                    const btnTranslated = document.createElement('button');
+                    btnTranslated.textContent = `Copy ${res.translationLang}`;
+                    btnTranslated.onclick = () => copyToClipboard(res.translated, btnTranslated);
+                    actions.appendChild(btnTranslated);
+                }
+
+                // Delete Button
+                const btnDelete = document.createElement('button');
+                btnDelete.textContent = 'Delete';
+                btnDelete.style.borderColor = 'rgba(255, 50, 50, 0.4)';
+                btnDelete.style.color = '#ff6b6b';
+                btnDelete.style.marginLeft = 'auto'; // Push delete to the right
+                btnDelete.onclick = () => {
+                    category.responses = category.responses.filter(r => r.id !== res.id);
+                    saveData();
+                    renderResponses();
+                };
+                
+                // Add hover effect specifically for the delete button
+                btnDelete.onmouseover = () => {
+                    btnDelete.style.background = 'rgba(255, 50, 50, 0.15)';
+                    btnDelete.style.boxShadow = '0 0 10px rgba(255, 50, 50, 0.3)';
+                };
+                btnDelete.onmouseout = () => {
+                    btnDelete.style.background = 'transparent';
+                    btnDelete.style.boxShadow = 'none';
+                };
+
+                actions.appendChild(btnDelete);
+                card.appendChild(actions);
+                container.appendChild(card);
+            });
+        }
+
+        // Copy to Clipboard Utility
+        function copyToClipboard(text, buttonElement) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = buttonElement.textContent;
+                buttonElement.textContent = 'Copied!';
+                buttonElement.style.background = 'var(--neon-purple)';
+                buttonElement.style.color = '#fff';
+                buttonElement.style.textShadow = 'none';
+                
+                setTimeout(() => {
+                    buttonElement.textContent = originalText;
+                    buttonElement.style.background = 'transparent';
+                    buttonElement.style.color = 'var(--neon-purple)';
+                    buttonElement.style.textShadow = '0 0 5px rgba(120, 0, 255, 0.3)';
+                }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            });
+        }
+
+        // Initialize App
+        if (data.categories.length > 0) {
+            selectCategory(data.categories[0].id);
+        } else {
+            renderCategories();
+        }
+    </script>
+</body>
+</html>
