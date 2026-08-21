@@ -104,6 +104,13 @@
             text-shadow: none;
         }
 
+        /* Sidebar Sections Divider */
+        .sidebar-section {
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px dashed var(--glass-border);
+        }
+
         /* Category List */
         .category-list {
             list-style: none;
@@ -206,8 +213,14 @@
 
     <div class="sidebar glass">
         <h2>Categories</h2>
-        <input type="text" id="newCategoryInput" placeholder="New Category Name...">
-        <button onclick="addCategory()" style="width: 100%; margin-bottom: 24px;">Add Category</button>
+        
+        <!-- Category Search Bar -->
+        <input type="text" id="categorySearchInput" placeholder="🔍 Search categories..." oninput="renderCategories()">
+        
+        <div class="sidebar-section">
+            <input type="text" id="newCategoryInput" placeholder="New Category Name..." style="margin-top: 8px;">
+            <button onclick="addCategory()" style="width: 100%;">Add Category</button>
+        </div>
         
         <ul class="category-list" id="categoryList">
             <!-- Categories injected here by JS -->
@@ -222,7 +235,7 @@
             <span id="translatingStatus" class="loading" style="display: none; margin-left: 12px;">Translating...</span>
         </div>
 
-        <!-- Search Bar -->
+        <!-- Response Search Bar -->
         <div id="searchSection" style="display: none; margin-bottom: 16px;">
             <input type="text" id="searchInput" placeholder="🔍 Search responses in this category..." oninput="renderResponses()" style="margin-bottom: 0;">
         </div>
@@ -260,12 +273,25 @@
             localStorage.setItem('responseManagerData', JSON.stringify(data));
         }
 
-        // Render Categories
+        // Render Categories (with Search Filter)
         function renderCategories() {
             const list = document.getElementById('categoryList');
             list.innerHTML = '';
             
-            data.categories.forEach(category => {
+            // Get category search query
+            const categorySearchQuery = document.getElementById('categorySearchInput').value.toLowerCase();
+            
+            // Filter categories based on search
+            const filteredCategories = data.categories.filter(category => 
+                category.name.toLowerCase().includes(categorySearchQuery)
+            );
+            
+            if (filteredCategories.length === 0 && categorySearchQuery !== '') {
+                list.innerHTML = '<li style="color: var(--text-muted); text-align: center; padding: 12px; font-size: 14px;">No categories found.</li>';
+                return;
+            }
+            
+            filteredCategories.forEach(category => {
                 const li = document.createElement('li');
                 li.className = `category-item ${activeCategoryId === category.id ? 'active' : ''}`;
                 li.onclick = () => selectCategory(category.id);
@@ -303,6 +329,9 @@
             data.categories.push(newCategory);
             saveData();
             input.value = '';
+            
+            // Clear the search filter when adding a new category so we can see it
+            document.getElementById('categorySearchInput').value = '';
             
             if (!activeCategoryId) {
                 selectCategory(newCategory.id);
@@ -345,7 +374,7 @@
                 document.getElementById('currentCategoryTitle').textContent = `Add to: ${category.name}`;
             }
             
-            // Clear the search bar when switching categories
+            // Clear the response search bar when switching categories
             document.getElementById('searchInput').value = '';
             
             renderCategories();
